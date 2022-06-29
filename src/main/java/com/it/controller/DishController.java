@@ -7,7 +7,9 @@ import com.it.common.R;
 import com.it.dto.DishDto;
 import com.it.entity.Category;
 import com.it.entity.Dish;
+import com.it.entity.DishFlavor;
 import com.it.service.CategoryService;
+import com.it.service.DishFlavorService;
 import com.it.service.DishService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -26,6 +28,8 @@ public class DishController {
     private DishService dishService;
     @Autowired
     private CategoryService categoryService;
+    @Autowired
+    private DishFlavorService dishFlavorService;
 
     @GetMapping("/page")
     public R<Page> page(int page,int pageSize,String name){
@@ -114,14 +118,27 @@ public class DishController {
     }
 
     @RequestMapping("/list")
-    public R<List<Dish>> getCategoryById(Dish dish){
+    public R<List<DishDto>> getCategoryById(Dish dish){
 
         LambdaQueryWrapper<Dish> dishLambdaQueryWrapper = new LambdaQueryWrapper<>();
         dishLambdaQueryWrapper.eq(dish.getCategoryId()!=null,Dish::getCategoryId,dish.getCategoryId());
-        dishLambdaQueryWrapper.orderByAsc(Dish::getSort).orderByDesc(Dish::getUpdateTime);
         dishLambdaQueryWrapper.eq(Dish::getStatus,1);
-        List<Dish> dishList = dishService.list(dishLambdaQueryWrapper);
+        dishLambdaQueryWrapper.orderByAsc(Dish::getSort).orderByDesc(Dish::getUpdateTime);
+        List<Dish> list = dishService.list(dishLambdaQueryWrapper);
 
-        return R.success(dishList);
+        ArrayList<DishDto> dishDtos = new ArrayList<>();
+
+        for (Dish record:list){
+
+            DishDto dishDto = new DishDto();
+            BeanUtils.copyProperties(record,dishDto);
+
+            Long id = record.getId();
+            List<DishFlavor> dishFlavors = dishFlavorService.list(new LambdaQueryWrapper<DishFlavor>().eq(DishFlavor::getDishId, id));
+            dishDto.setFlavors(dishFlavors);
+
+            dishDtos.add(dishDto);
+        }
+        return R.success(dishDtos);
     }
 }

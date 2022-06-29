@@ -33,7 +33,10 @@ public class LoginCheckFilter implements Filter {
                 "/employee/login",
                 "/employee/logout",
                 "/backend/**",
-                "/front/**"
+                "/front/**",
+                "/common/**",
+                "/user/sendMsg",
+                "/user/login"
         };
         boolean check = check(requestURI, urls);
         if (check) {
@@ -45,6 +48,12 @@ public class LoginCheckFilter implements Filter {
             filterChain.doFilter(request, response);
             return;
         }
+        if (request.getSession().getAttribute("user") != null) {
+            BaseContext.setCurrentId((Long) request.getSession().getAttribute("user"));
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         response.getWriter().write(JSON.toJSONString(R.error("NOTLOGIN")));
         return;
     }

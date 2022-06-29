@@ -5,11 +5,11 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.it.common.R;
 import com.it.dto.DishDto;
+import com.it.dto.SetmealDishDto;
 import com.it.dto.SetmealDto;
-import com.it.entity.Category;
-import com.it.entity.Dish;
-import com.it.entity.Setmeal;
+import com.it.entity.*;
 import com.it.service.CategoryService;
+import com.it.service.DishService;
 import com.it.service.SetmealDishService;
 import com.it.service.SetmealService;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +31,8 @@ public class SetmealController {
     private SetmealService setmealService;
     @Autowired
     private CategoryService categoryService;
+    @Autowired
+    private DishService dishService;
 
     @PostMapping
     public R<String> save(@RequestBody SetmealDto setmealDto){
@@ -93,5 +95,106 @@ public class SetmealController {
 
         setmealService.delete(ids);
         return R.success("删除成功");
+    }
+
+    @RequestMapping("/list")
+    public R<List<SetmealDto>> getCategoryById(Setmeal setmeal){
+
+        LambdaQueryWrapper<Setmeal> setmealLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        setmealLambdaQueryWrapper.eq(setmeal.getCategoryId()!=null,Setmeal::getCategoryId,setmeal.getCategoryId());
+        setmealLambdaQueryWrapper.eq(Setmeal::getStatus,1);
+        setmealLambdaQueryWrapper.orderByDesc(Setmeal::getUpdateTime);
+        List<Setmeal> list = setmealService.list(setmealLambdaQueryWrapper);
+
+        ArrayList<SetmealDto> dishDtos = new ArrayList<>();
+
+        for (Setmeal record:list){
+
+            SetmealDto setmealDto = new SetmealDto();
+            BeanUtils.copyProperties(record,setmealDto);
+
+            Long id = record.getId();
+            List<SetmealDish> dishFlavors = setmealDishService.list(new LambdaQueryWrapper<SetmealDish>().eq(SetmealDish::getDishId, id));
+            setmealDto.setSetmealDishes(dishFlavors);
+
+            dishDtos.add(setmealDto);
+        }
+        return R.success(dishDtos);
+    }
+
+    /*@GetMapping("/dish/{setmealId}")
+    public R<List<Dish>> dishList(@PathVariable Long setmealId){
+        LambdaQueryWrapper<SetmealDish> setmealDishLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        setmealDishLambdaQueryWrapper.eq(SetmealDish::getSetmealId,setmealId);
+        List<SetmealDish> setmealDishes = setmealDishService.list(setmealDishLambdaQueryWrapper);
+
+        ArrayList<Dish> dishes = new ArrayList<>();
+        for (SetmealDish setmealDish:setmealDishes){
+            Long dishId = setmealDish.getDishId();
+
+            Dish dish = dishService.getById(dishId);
+            dishes.add(dish);
+        }
+        return R.success(dishes);
+    }*/
+
+    @GetMapping("/dish/{setmealId}")
+    public R<List<SetmealDishDto>> dishList(@PathVariable Long setmealId){
+        LambdaQueryWrapper<SetmealDish> setmealDishLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        setmealDishLambdaQueryWrapper.eq(SetmealDish::getSetmealId,setmealId);
+        List<SetmealDish> setmealDishes = setmealDishService.list(setmealDishLambdaQueryWrapper);
+
+        ArrayList<SetmealDishDto> setmealDishDtos = new ArrayList<>();
+        for (SetmealDish setmealDish:setmealDishes){
+            SetmealDishDto setmealDishDto = new SetmealDishDto();
+            Long dishId = setmealDish.getDishId();
+            Dish dish = dishService.getById(dishId);
+
+            Integer copies = setmealDish.getCopies();
+
+            BeanUtils.copyProperties(dish,setmealDishDto);
+            setmealDishDto.setCopies(copies);
+
+            setmealDishDtos.add(setmealDishDto);
+        }
+        return R.success(setmealDishDtos);
+    }
+
+    @GetMapping("/{setmealId}")
+    public R<SetmealDto> showSetmeal(@PathVariable Long setmealId){
+
+        LambdaQueryWrapper<SetmealDish> setmealDtoLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        setmealDtoLambdaQueryWrapper.eq(SetmealDish::getSetmealId,setmealId);
+        List<SetmealDish> setmealDishes = setmealDishService.list(setmealDtoLambdaQueryWrapper);
+
+        Setmeal setmeal = setmealService.getById(setmealId);
+
+        SetmealDto setmealDto = new SetmealDto();
+        BeanUtils.copyProperties(setmeal,setmealDto);
+
+        setmealDto.setSetmealDishes(setmealDishes);
+
+        return R.success(setmealDto);
+    }
+
+    @PutMapping
+    public R<String> update(@RequestBody SetmealDto setmealDto){
+
+        setmealService.updateById(setmealDto);
+
+        LambdaQueryWrapper<SetmealDish> setmealDishLambdaQueryWrapper = new LambdaQueryWrapper<>();
+        setmealDishLambdaQueryWrapper.eq(SetmealDish::getSetmealId,setmealDto.getId());
+        setmealDishService.remove(setmealDishLambdaQueryWrapper);
+
+        List<SetmealDish> setmealDishes = setmealDto.getSetmealDishes();
+        for (SetmealDish setmealDish:setmealDishes){
+            Long setmealId = setmealDto.getId();
+            setmealDish.setSetmealId(setmealId);
+
+
+
+            setmealDishService.save(setmealDish);
+        }
+        return R.success("修改成功");
     }
 }
